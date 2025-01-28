@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Maze</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 2px solid black;
+            margin-top: 20px;
+            touch-action: none;
+        }
+        #message {
+            font-size: 1.5em;
+            margin-top: 20px;
+        }
+        #question {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+        #answerInput {
+            margin-top: 10px;
+            font-size: 1em;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Math Maze</h1>
+    <p>กดที่ช่องเพื่อเดิน และ กด Enter เพื่อตอบ</p>
+    <canvas id="mazeCanvas" width="250" height="250"></canvas>
+    <div id="message"></div>
+    <div id="question"></div>
+    <input id="answerInput" placeholder="คำตอบของคุณ" />
+
+    <script>
+        const canvas = document.getElementById("mazeCanvas");
+        const ctx = canvas.getContext("2d");
+        const questionDiv = document.getElementById("question");
+        const answerInput = document.getElementById("answerInput");
+        const tileSize = 50;
+        let gameOver = false;
+        let currentQuestion = null;
+        let allowMove = false;
+        let maze = [];
+        let playerPosition = { x: 0, y: 0 };
+
+        function generateMaze(rows, cols) {
+            maze = Array.from({ length: rows }, () => Array(cols).fill(" "));
+
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (Math.random() < 0.3) maze[y][x] = "W";
+                }
+            }
+
+            let x = 0, y = 0;
+            maze[y][x] = "P";
+            while (x < cols - 1 || y < rows - 1) {
+                if (x === cols - 1) y++;
+                else if (y === rows - 1) x++;
+                else if (Math.random() < 0.5) x++;
+                else y++;
+                maze[y][x] = " ";
+            }
+            maze[rows - 1][cols - 1] = "G";
+            playerPosition = { x: 0, y: 0 };
+        }
+
+        function drawMaze() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < maze.length; y++) {
+                for (let x = 0; x < maze[y].length; x++) {
+                    if (maze[y][x] === "W") {
+                        ctx.fillStyle = "black";
+                        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    } else if (maze[y][x] === "G") {
+                        ctx.fillStyle = "green";
+                        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    } else if (maze[y][x] === "P") {
+                        ctx.fillStyle = "blue";
+                        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    } else {
+                        ctx.fillStyle = "white";
+                        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    }
+
+                    ctx.strokeStyle = "gray";
+                    ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                }
+            }
+        }
+
+        function generateQuestion() {
+            const operations = ["+", "-", "*", "/"];
+            const operation = operations[Math.floor(Math.random() * operations.length)];
+            let num1 = Math.floor(Math.random() * 10) + 1;
+            let num2 = Math.floor(Math.random() * 10) + 1;
+
+            if (operation === "-") {
+                if (num1 < num2) [num1, num2] = [num2, num1];
+            } else if (operation === "/") {
+                while (num1 % num2 !== 0) {
+                    num1 = Math.floor(Math.random() * 10) + 1;
+                    num2 = Math.floor(Math.random() * 10) + 1;
+                }
+            }
+
+            currentQuestion = {
+                question: `${num1} ${operation} ${num2}`,
+                answer: eval(`${num1} ${operation} ${num2}`)
+            };
+
+            questionDiv.innerText = `โจทย์: ${currentQuestion.question}`;
+            allowMove = false;
+        }
+
+        function movePlayer(dx, dy) {
+            if (gameOver || !allowMove) return;
+
+            const newX = playerPosition.x + dx;
+            const newY = playerPosition.y + dy;
+
+            if (newX >= 0 && newX < maze[0].length && newY >= 0 && newY < maze.length) {
+                if (maze[newY][newX] === " ") {
+                    maze[playerPosition.y][playerPosition.x] = " ";
+                    playerPosition.x = newX;
+                    playerPosition.y = newY;
+                    maze[newY][newX] = "P";
+                    generateQuestion();
+                } else if (maze[newY][newX] === "G") {
+                    maze[playerPosition.y][playerPosition.x] = " ";
+                    playerPosition.x = newX;
+                    playerPosition.y = newY;
+                    maze[newY][newX] = "P";
+
+                    document.getElementById("message").innerText = "ยินดีด้วย! คุณชนะ!";
+                    questionDiv.style.display = "none";
+                    answerInput.style.display = "none";
+                    gameOver = true;
+                }
+            }
+
+            drawMaze();
+        }
+
+        function checkAnswer() {
+            const playerAnswer = parseInt(answerInput.value.trim(), 10);
+            if (playerAnswer === currentQuestion.answer) {
+                allowMove = true;
+                questionDiv.innerText = "ตอบถูกต้อง! แตะที่ช่องถัดไปหรือใช้ปุ่มลูกศรเพื่อเดิน";
+                answerInput.value = "";
+            } else {
+                questionDiv.innerText = "ตอบผิด! ลองอีกครั้ง: " + currentQuestion.question;
+                answerInput.value = "";
+            }
+        }
+
+        answerInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                checkAnswer();
+            }
+        });
+
+        canvas.addEventListener("click", (e) => {
+            if (!allowMove || gameOver) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = Math.floor((e.clientX - rect.left) / tileSize);
+            const clickY = Math.floor((e.clientY - rect.top) / tileSize);
+
+            if (Math.abs(clickX - playerPosition.x) + Math.abs(clickY - playerPosition.y) === 1 && maze[clickY][clickX] !== "W") {
+                movePlayer(clickX - playerPosition.x, clickY - playerPosition.y);
+            }
+        });
+
+        function startGame() {
+            gameOver = false;
+            generateMaze(5, 5);
+            drawMaze();
+            generateQuestion();
+            questionDiv.style.display = "block";
+            answerInput.style.display = "block";
+            document.getElementById("message").innerText = "";
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
